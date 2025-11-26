@@ -3,18 +3,23 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import axios from "axios";
 import { FiClock, FiCalendar, FiMapPin, FiDollarSign } from "react-icons/fi";
+import { useAuth } from '../context/authContext';
 
 const MyTrips = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchTrips = async () => {
+      if (!user) return;
       try {
-        const response = await axios.get("http://localhost:5555/trips");
-        setTrips(response.data);
+        const response = await axios.get("http://localhost:5555/users/mytrips", {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
+        setTrips(response.data.trips);
       } catch (err) {
         setError("Failed to load trips. Please try again.");
         console.error("Error fetching trips:", err);
@@ -23,14 +28,15 @@ const MyTrips = () => {
       }
     };
 
-    fetchTrips();
-  }, []);
+    if (user) {
+      fetchTrips();
+    }
+  }, [user]);
 
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -93,33 +99,32 @@ const MyTrips = () => {
         ) : (
           <div className="grid gap-6">
             {trips.map((trip) => (
-              <div 
-                key={trip._id} 
+              <div
+                key={trip._id}
                 className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
                 onClick={() => navigate(`/trips/${trip._id}`)}
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start">
-                    <h2 className="text-xl font-bold text-gray-800 mb-2">{trip.details.destination}</h2>
-                    <span className={`px-3 py-1 rounded-full text-sm ${
-                      trip.status === 'completed' 
-                        ? 'bg-green-100 text-green-800' 
-                        : trip.status === 'upcoming' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                    }`}>
+                    <h2 className="text-xl font-bold text-gray-800 mb-2">{trip.destination}</h2>
+                    <span className={`px-3 py-1 rounded-full text-sm ${trip.status === 'completed'
+                      ? 'bg-green-100 text-green-800'
+                      : trip.status === 'upcoming'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                      }`}>
                       {trip.status}
                     </span>
                   </div>
-                  
+
                   <div className="flex flex-wrap gap-4 mt-4 text-gray-600">
                     <div className="flex items-center">
                       <FiCalendar className="mr-2" />
-                      <span>{formatDate(trip.details.startDate)} - {formatDate(trip.details.endDate)}</span>
+                      <span>{formatDate(trip.startDate)} - {formatDate(trip.endDate)}</span>
                     </div>
                     <div className="flex items-center">
                       <FiDollarSign className="mr-2" />
-                      <span className="capitalize">{trip.details.budget}</span>
+                      <span className="capitalize">{trip.budget}</span>
                     </div>
                     <div className="flex items-center">
                       <FiMapPin className="mr-2" />
@@ -130,9 +135,9 @@ const MyTrips = () => {
                   <div className="mt-4">
                     <h3 className="font-medium text-gray-700 mb-2">Interests:</h3>
                     <div className="flex flex-wrap gap-2">
-                      {trip.details.interests.map((interest, index) => (
-                        <span 
-                          key={index} 
+                      {trip.preferences && trip.preferences.map((interest, index) => (
+                        <span
+                          key={index}
                           className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm"
                         >
                           {interest}

@@ -1,18 +1,20 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import userModel from '../models/user-model.js'; 
-import postModel from '../models/post-model.js'; 
-import Trip from '../models/tripModel.js'; 
-import Place from '../models/place.js'; 
-import Review  from'../models/Review.js';
+import userModel from '../models/user-model.js';
+import postModel from '../models/post-model.js';
+import Trip from '../models/tripModel.js';
+import Place from '../models/place.js';
+import Review from '../models/Review.js';
 import multer from 'multer';
 import cloudinary from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 dotenv.config();
 
 import isLoggedIn from '../middlewares/isloggedin.js';
+import { getRecommendations } from '../services/recommendationService.js';
 
 const userRouter = express.Router();
 
@@ -88,13 +90,23 @@ userRouter.post('/login', async (req, res) => {
     const token = jwt.sign({ id: user._id, email }, 'highhook', { expiresIn: '1h' });
 
     // Send token as a cookie
-    res.cookie('token', token, { 
+    res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production', // Only secure in production
-      sameSite: 'None' 
+      sameSite: 'None'
     });
 
-    res.status(200).json({ message: 'You are logged in', token });
+    res.status(200).json({
+      message: 'You are logged in',
+      token,
+      user: {
+        _id: user._id,
+        fullname: user.fullname,
+        email: user.email,
+        phone: user.phone,
+        picture: user.picture
+      }
+    });
   } catch (err) {
     console.error('Login Error:', err);
     res.status(500).send('Server error');
@@ -151,7 +163,7 @@ userRouter.post("/createpost", isLoggedIn, upload.single("image"), async (req, r
     res.status(500).json({ message: "Server error" });
   }
 });
-userRouter.get('/myposts',isLoggedIn, async (req, res) => {
+userRouter.get('/myposts', isLoggedIn, async (req, res) => {
   try {
 
     let user = await userModel.findOne({ email: req.user.email }).select("fullname email phone post").populate('post');
@@ -165,38 +177,52 @@ userRouter.get('/myposts',isLoggedIn, async (req, res) => {
 
 userRouter.get('/userdetails', isLoggedIn, async (req, res) => {
   try {
-    let user = await userModel.findOne({ email: req.user.email }).select("fullname email phone");
-    res.status(200).json({ fullname: user.fullname, email: user.email, phone: user.phone });
+    let user = await userModel.findOne({ email: req.user.email }).select("fullname email phone picture _id");
+    res.status(200).json({ _id: user._id, fullname: user.fullname, email: user.email, phone: user.phone, picture: user.picture });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 });
-userRouter.post('/updateprofile', isLoggedIn, async (req, res) => {
+userRouter.put('/:id', isLoggedIn, async (req, res) => {
   try {
     const { fullname, email, phone } = req.body;
-    let user = await userModel.findOne({ email: req.user.email });
+
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid User ID" });
+    }
+
+    let user = await userModel.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+    // Ensure the logged-in user is updating their own profile
+    if (user.email !== req.user.email) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
     user.fullname = fullname || user.fullname;
     user.email = email || user.email;
     user.phone = phone || user.phone;
     await user.save();
-    res.status(200).json({ message: "Profile updated successfully" });
+    res.status(200).json({ message: "Profile updated successfully", user });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
+
+
 userRouter.get('/mytrips', isLoggedIn, async (req, res) => {
   try {
     let user = await userModel.findOne({ email: req.user.email }).select("fullname email phone trips").populate('trips');
-    res.status(200).json({ trips: user.trips, fullname: user.fullname, email: user.email, phone: user.phone }); 
+    res.status(200).json({ trips: user.trips, fullname: user.fullname, email: user.email, phone: user.phone });
   } catch (err) {
-    console.error(err); 
-    res.status(500).json({ message: "Server error" });}
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 userRouter.get('/mytrip/:tripId', isLoggedIn, async (req, res) => {
@@ -208,7 +234,8 @@ userRouter.get('/mytrip/:tripId', isLoggedIn, async (req, res) => {
     res.status(200).json({ trip });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });}
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 userRouter.post('/deletetrip/:tripId', isLoggedIn, async (req, res) => {
@@ -216,12 +243,12 @@ userRouter.post('/deletetrip/:tripId', isLoggedIn, async (req, res) => {
     let trip = await Trip.findByIdAndDelete(req.params.tripId);
     if (!trip) {
       return res.status(404).json({ message: "Trip not found" });
-    } 
+    }
     let user = await userModel.findOne({ email: req.user.email });
     user.trips = user.trips.filter(t => t.toString() !== trip._id.toString());
     await user.save();
     res.status(200).json({ message: "Trip deleted successfully" });
-  } catch (err) {   
+  } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
@@ -229,9 +256,10 @@ userRouter.post('/deletetrip/:tripId', isLoggedIn, async (req, res) => {
 
 userRouter.get('/allposts', async (req, res) => {
   try {
-    const posts =  await postModel
+    const posts = await postModel
       .find()
-      .populate("userid", "name"); // Only fetch the name field from User
+      .populate("userid", "fullname picture")
+      .populate("comments.userid", "fullname picture");
 
     res.status(200).json({ posts });
   } catch (err) {
@@ -261,12 +289,32 @@ userRouter.get('/addReview', async (req, res) => {
 });
 
 
-userRouter.post('/likepost/:id',isLoggedIn, async (req, res) => {
+userRouter.post('/likepost/:id', isLoggedIn, async (req, res) => {
   try {
     let post = await postModel.findById(req.params.id);
-    post.likes += 1;
+    if (!post) return res.status(404).json({ message: "Post not found" });
+
+    // Fix: Use _id because req.user is a lean object and doesn't have .id virtual
+    const userId = req.user._id.toString();
+
+    // Clean up likedBy array to remove nulls
+    post.likedBy = post.likedBy.filter(id => id);
+
+    // Fix: Compare ObjectId to string correctly
+    const isLiked = post.likedBy.some(id => id.toString() === userId);
+
+    if (isLiked) {
+      // Unlike
+      post.likes = Math.max(0, post.likes - 1);
+      post.likedBy = post.likedBy.filter(id => id.toString() !== userId);
+    } else {
+      // Like
+      post.likes += 1;
+      post.likedBy.push(userId);
+    }
+
     await post.save();
-    res.status(200).json({ message: "Post liked" });
+    res.status(200).json({ message: isLiked ? "Post unliked" : "Post liked", likes: post.likes, isLiked: !isLiked });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -293,57 +341,219 @@ userRouter.post('/posts/addcomment/:id', isLoggedIn, async (req, res) => {
   }
 });
 
-userRouter.get('/allposts', async (req, res) => {
+userRouter.delete('/posts/:postId/comments/:commentId', isLoggedIn, async (req, res) => {
   try {
-    const posts = await postModel
-      .find()
-      .populate("userid", "fullName") // populate post creator name
-      .populate("comments.userid", "fullName"); // populate commenter names
+    const { postId, commentId } = req.params;
+    const post = await postModel.findById(postId);
 
-    res.status(200).json({ posts });
+    if (!post) return res.status(404).json({ message: "Post not found" });
+
+    const commentIndex = post.comments.findIndex(c => c._id.toString() === commentId);
+
+    if (commentIndex === -1) return res.status(404).json({ message: "Comment not found" });
+
+    // Check ownership - Fix: use _id because req.user is a lean object
+    if (post.comments[commentIndex].userid.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    post.comments.splice(commentIndex, 1);
+    await post.save();
+
+    res.status(200).json({ message: "Comment deleted", post });
   } catch (err) {
-    console.error("❌ Error fetching posts:", err.message);
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// User Logout
+userRouter.get('/logout', (req, res) => {
+  res.cookie("token", "");
+  res.status(200).json({ message: "Logged out successfully" });
+});
+
+// Get personalized recommendations based on user location
+// IMPORTANT: This must come BEFORE the /:id route to avoid being matched as a dynamic parameter
+userRouter.get('/recommendations', async (req, res) => {
+  console.log("🎯 Recommendations endpoint hit!", req.query);
+  try {
+    const { lat, lng } = req.query;
+
+    console.log("📍 Fetching recommendations for:", { lat, lng });
+
+    // Fetch recommendations
+    const recommendations = await getRecommendations(
+      parseFloat(lat),
+      parseFloat(lng)
+    );
+
+    console.log("✅ Recommendations fetched:", recommendations);
+
+    res.status(200).json({ recommendations });
+  } catch (err) {
+    console.error("❌ Error fetching recommendations:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Save a place for the user
+userRouter.post('/saveplace', isLoggedIn, async (req, res) => {
+  try {
+    const { name, lat, lng, rating, address, types } = req.body;
+    const userId = req.user._id;
+
+    if (!name || !lat || !lng || !address) {
+      return res.status(400).json({ message: "Place details are required" });
+    }
+
+    // Find or create the place
+    let place = await Place.findOne({ name, address });
+
+    if (!place) {
+      place = await Place.create({
+        name,
+        lat,
+        lng,
+        rating: rating || 0,
+        address,
+        types: types || []
+      });
+    }
+
+    // Check if already saved
+    const user = await userModel.findById(userId);
+    const alreadySaved = user.saved_places.some(p => p.toString() === place._id.toString());
+
+    if (alreadySaved) {
+      return res.status(200).json({ message: "Place already saved", place });
+    }
+
+    // Add to user's saved places
+    user.saved_places.push(place._id);
+    await user.save();
+
+    res.status(200).json({ message: "Place saved successfully", place });
+  } catch (err) {
+    console.error("Error saving place:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Remove a saved place
+userRouter.delete('/saveplace/:placeId', isLoggedIn, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { placeId } = req.params;
+
+    const user = await userModel.findById(userId);
+    user.saved_places = user.saved_places.filter(p => p.toString() !== placeId);
+    await user.save();
+
+    res.status(200).json({ message: "Place removed from saved places" });
+  } catch (err) {
+    console.error("Error removing saved place:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get all saved places for the user
+userRouter.get('/savedplaces', isLoggedIn, async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await userModel.findById(userId).populate('saved_places');
+
+    res.status(200).json({ savedPlaces: user.saved_places || [] });
+  } catch (err) {
+    console.error("Error fetching saved places:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+userRouter.get('/:id', isLoggedIn, async (req, res) => {
+  try {
+    const user = await userModel.findById(req.params.id)
+      .populate('post')
+      .populate('saved_places')
+      .populate('trips');
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json(user);
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
 
+// Update Post Route
+userRouter.put('/updatepost/:id', isLoggedIn, upload.single("image"), async (req, res) => {
+  try {
+    const { name, description } = req.body;
 
-  userRouter.post('/add-review', async (req, res) => {
-    try {
-      const { userId, placeId, rating } = req.body;
-  
-      // Validate input
-      if (!userId || !placeId || !rating) {
-        return res.status(400).json({ message: "All fields are required." });
-      }
-  
-      // Check if rating is within valid range
-      if (rating < 1 || rating > 5) {
-        return res.status(400).json({ message: "Rating must be between 1 and 5." });
-      }
-  
-      // Create new review
-      const newReview = new Review({
-        userId,
-        placeId,
-        rating,
-      });
-  
-      // Save to database
-      await newReview.save();
-  
-      res.status(201).json({ message: "Review added successfully.", review: newReview });
-    } catch (error) {
-      console.error("Error adding review:", error);
-      res.status(500).json({ message: "Internal server error." });
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid Post ID" });
     }
-  });
 
+    let post = await postModel.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
 
-// User Logout
-userRouter.post('/logout', (req, res) => {
-  res.clearCookie('token').send('You are logged out');
+    // Check ownership
+    if (post.userid.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    // Update fields
+    if (name) post.name = name;
+    if (description) post.description = description;
+    if (req.file) post.picture = req.file.path; // Update image if new one provided
+
+    await post.save();
+    res.status(200).json({ message: "Post updated successfully", post });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Delete Post Route
+userRouter.delete('/deletepost/:id', isLoggedIn, async (req, res) => {
+  try {
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid Post ID" });
+    }
+
+    let post = await postModel.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    // Check ownership
+    if (post.userid.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    // Remove post from user's post array
+    let user = await userModel.findById(req.user.id);
+    user.post = user.post.filter(p => p.toString() !== req.params.id);
+    await user.save();
+
+    // Delete the post
+    await postModel.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({ message: "Post deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 export default userRouter;
+

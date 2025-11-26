@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import CreateTrip from './pages/CreateTrip'
 import ViewTrip from './pages/ViewTrip'
+import MyTrips from './pages/MyTrips'
 import ProtectedRoute from './components/ProtectedRoute'
 import PostFeed from './components/PostFeed'
 import CreatePost from './components/CreatePost'
@@ -27,6 +28,8 @@ const App = () => {
             <Route path='/dashboard' element={<Dashboard />} />
             <Route path='/create-trip' element={<CreateTrip />} />
             <Route path='/view-trip' element={<ViewTrip />} />
+            <Route path='/my-trips' element={<MyTrips />} />
+            <Route path='/trips/:tripId' element={<ViewTrip />} />
             <Route path='/createpost' element={<CreatePost />} />
             <Route path='/explore' element={<PostFeed />} />
             <Route path='/account' element={<AccountPage />} />

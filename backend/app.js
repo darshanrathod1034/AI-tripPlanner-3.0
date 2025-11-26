@@ -32,7 +32,7 @@ const PORT = 5555;
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:5173', // Replace with your frontend URL
+  origin: 'http://localhost:5173',
   credentials: true
 }));
 app.use(express.urlencoded({ extended: true }));
@@ -48,10 +48,21 @@ app.use(
 );
 app.use(flash()); // Now properly imported
 
+import errorHandler from './middlewares/errorHandler.js';
+
+// ... existing imports ...
+
+// ... existing routes ...
+
 app.use('/users', usersRouter);
 app.use('/auth', authRouter);
 app.use("/api/places", placeRouter);
 app.use("/ai", airoutes);
+
+// Error Handler Middleware (Must be last)
+app.use(errorHandler);
+
+// MongoDB Connection
 
 //app.use('/auth', authRouter);
 

@@ -5,16 +5,17 @@ const userSchema = new mongoose.Schema({
     email: String,
     password: String,
     post: [{
-       type: mongoose.Schema.Types.ObjectId,
-       ref: 'post'  // ✅ Matches model name exactly
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'post'  // ✅ Matches model name exactly
     }],
     saved_places: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'place'  // Ensure it matches the place model
-     }],
-     preferences: [String], // ["beaches", "adventure", "history"]
-     trips: [{ type: mongoose.Schema.Types.ObjectId, ref: "Trip" }],
-    phone: Number
+    }],
+    preferences: [String], // ["beaches", "adventure", "history"]
+    trips: [{ type: mongoose.Schema.Types.ObjectId, ref: "Trip" }],
+    phone: Number,
+    picture: { type: String, default: "" }
 });
 
 const userModel = mongoose.model('users', userSchema);  // ✅ Keep as 'users'

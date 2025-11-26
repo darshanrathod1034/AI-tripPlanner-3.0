@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
 
 const CreatePost = () => {
@@ -11,7 +11,20 @@ const CreatePost = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+
+  // Check if we are in edit mode
+  const editMode = location.state?.post ? true : false;
+  const existingPost = location.state?.post;
+
+  useEffect(() => {
+    if (editMode && existingPost) {
+      setName(existingPost.name);
+      setDescription(existingPost.description);
+      setPreview(existingPost.picture);
+    }
+  }, [editMode, existingPost]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -44,7 +57,7 @@ const CreatePost = () => {
       return;
     }
 
-    if (!image) {
+    if (!image && !editMode) {
       setError('Please select an image');
       return;
     }
@@ -55,43 +68,38 @@ const CreatePost = () => {
       const formData = new FormData();
       formData.append('name', name);
       formData.append('description', description);
-      formData.append('image', image);
-
-      console.log('Form data entries:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value instanceof File ? `${value.name} (${value.size} bytes)` : value);
+      if (image) {
+        formData.append('image', image);
       }
 
-      const response = await axios.post(
-        'http://localhost:5555/posts/create',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            'Authorization': `Bearer ${user.token}`
-          }
-        }
-      );
+      const url = editMode
+        ? `http://localhost:5555/users/updatepost/${existingPost._id}`
+        : 'http://localhost:5555/users/createpost';
 
-      if (response.status === 201) {
-        navigate('/posts', { 
-          state: { success: 'Post created successfully!' } 
+      const method = editMode ? 'put' : 'post';
+
+      const response = await axios({
+        method: method,
+        url: url,
+        data: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
+
+      if (response.status === 201 || response.status === 200) {
+        navigate('/account', {
+          state: { success: editMode ? 'Post updated successfully!' : 'Post created successfully!' }
         });
       }
     } catch (err) {
-      console.error('Post creation error:', err);
-      
-      let errorMessage = 'Failed to create post';
-      
+      console.error('Post operation error:', err);
+
+      let errorMessage = 'Failed to process request';
+
       if (err.response) {
-        if (err.response.status === 400 && err.response.data.errors) {
-          errorMessage = Object.values(err.response.data.errors)
-                            .map(err => err.message || err)
-                            .join(', ');
-        } else {
-          errorMessage = err.response.data?.message || 
-                       `Server error (${err.response.status})`;
-        }
+        errorMessage = err.response.data?.message || `Server error (${err.response.status})`;
       } else if (err.request) {
         errorMessage = 'No response from server. Check your connection.';
       } else {
@@ -106,8 +114,8 @@ const CreatePost = () => {
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-8 text-center">Create New Post</h1>
-      
+      <h1 className="text-3xl font-bold mb-8 text-center">{editMode ? 'Edit Post' : 'Create New Post'}</h1>
+
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -148,23 +156,24 @@ const CreatePost = () => {
         {/* Image Upload Section */}
         <div className="mb-6">
           <label className="block text-gray-700 font-medium mb-2">
-            Image<span className='text-red-500'><sup>*</sup></span> (JPEG/PNG, max 5MB)
+            Image{editMode ? '' : <span className='text-red-500'><sup>*</sup></span>} (JPEG/PNG, max 5MB)
           </label>
           <div className="flex items-center justify-center w-full">
             <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
               {preview ? (
                 <div className="relative w-full h-full">
-                  <img 
-                    src={preview} 
-                    alt="Preview" 
-                    className="w-full h-full object-cover rounded-lg" 
+                  <img
+                    src={preview}
+                    alt="Preview"
+                    className="w-full h-full object-cover rounded-lg"
                   />
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setImage(null);
-                      setPreview(null);
+                      if (!editMode) setPreview(null); // Keep preview if editing and reverting to original
+                      else setPreview(existingPost.picture); // Revert to original image
                     }}
                     className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                   >
@@ -182,12 +191,12 @@ const CreatePost = () => {
                   <p className="text-xs text-gray-500">JPEG or PNG (MAX. 5MB)</p>
                 </div>
               )}
-              <input 
-                type="file" 
-                className="hidden" 
+              <input
+                type="file"
+                className="hidden"
                 accept="image/jpeg, image/png"
                 onChange={handleFileChange}
-                required
+                required={!editMode && !image}
               />
             </label>
           </div>
@@ -197,7 +206,7 @@ const CreatePost = () => {
         <div className="flex justify-end gap-4">
           <button
             type="button"
-            onClick={() => navigate('/posts')}
+            onClick={() => navigate('/account')}
             disabled={loading}
             className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
           >
@@ -214,9 +223,9 @@ const CreatePost = () => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Posting...
+                {editMode ? 'Updating...' : 'Posting...'}
               </>
-            ) : 'Create Post'}
+            ) : (editMode ? 'Update Post' : 'Create Post')}
           </button>
         </div>
       </form>

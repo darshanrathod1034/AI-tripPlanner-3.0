@@ -1,285 +1,309 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate, Link } from 'react-router-dom';
-import { FaHeart, FaRegHeart, FaComment, FaRegComment, FaBookmark, FaRegBookmark, FaEllipsisH } from 'react-icons/fa';
-import { FiSend } from 'react-icons/fi';
-import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { FaHeart, FaRegHeart, FaComment, FaTimes, FaTrash } from 'react-icons/fa';
+import { useAuth } from '../context/authContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const PostFeed = () => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [likedPosts, setLikedPosts] = useState([]);
-  const [activeComment, setActiveComment] = useState(null);
+  const [selectedPost, setSelectedPost] = useState(null);
   const [commentText, setCommentText] = useState('');
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const response = await axios.get('http://localhost:5555/users/allposts');
-        setPosts(response.data.posts || response.data);
-      } catch (err) {
-        setError('Failed to load posts. Please try again.');
-        console.error('Error fetching posts:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchPosts();
   }, []);
 
-  const handleLike = async (postId) => {
+  const fetchPosts = async () => {
     try {
-      await axios.put(`http://localhost:5555/users/likepost/${postId}`);
-      if (likedPosts.includes(postId)) {
-        setLikedPosts(likedPosts.filter(id => id !== postId));
-        setPosts(posts.map(post => 
-          post._id === postId ? { ...post, likes: post.likes - 1 } : post
-        ));
-      } else {
-        setLikedPosts([...likedPosts, postId]);
-        setPosts(posts.map(post => 
-          post._id === postId ? { ...post, likes: post.likes + 1 } : post
-        ));
-      }
+      const response = await axios.get('http://localhost:5555/users/allposts');
+      setPosts(response.data.posts || []);
     } catch (err) {
-      console.error('Error liking post:', err);
+      console.error('Error fetching posts:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCommentSubmit = async (postId) => {
-    if (!commentText.trim()) return;
-    
+  const handleLike = async (postId) => {
+    if (!user) {
+      alert("Please login to like posts!");
+      return;
+    }
+
     try {
-      const newComment = {
-        userid: 'currentUserId', // Replace with actual user ID
-        comment: commentText,
-        createdAt: new Date()
+      // Optimistic update
+      const postIndex = posts.findIndex(p => p._id === postId);
+      if (postIndex === -1) return;
+
+      const post = posts[postIndex];
+      const likedBy = post.likedBy || [];
+
+      const isLiked = likedBy.some(id => id?.toString() === user._id?.toString());
+
+      const updatedPost = {
+        ...post,
+        likes: isLiked ? Math.max(0, post.likes - 1) : post.likes + 1,
+        likedBy: isLiked
+          ? likedBy.filter(id => id?.toString() !== user._id?.toString())
+          : [...likedBy, user._id]
       };
 
-      const updatedPosts = posts.map(post => {
-        if (post._id === postId) {
-          return {
-            ...post,
-            comments: [...post.comments, newComment]
-          };
-        }
-        return post;
+      const newPosts = [...posts];
+      newPosts[postIndex] = updatedPost;
+      setPosts(newPosts);
+
+      if (selectedPost && selectedPost._id === postId) {
+        setSelectedPost(updatedPost);
+      }
+
+      // API Call
+      await axios.post(`http://localhost:5555/users/likepost/${postId}`, {}, {
+        headers: { Authorization: `Bearer ${user.token}` }
       });
-      
-      setPosts(updatedPosts);
+
+    } catch (err) {
+      console.error('Error liking post:', err);
+      // Revert on error (could be implemented for better UX)
+    }
+  };
+
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) {
+      alert("Please login to comment!");
+      return;
+    }
+    if (!commentText.trim() || !selectedPost) return;
+
+    try {
+      const response = await axios.post(`http://localhost:5555/users/posts/addcomment/${selectedPost._id}`,
+        { comment: commentText },
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+
+      const updatedPost = response.data.post;
+
+      // Update posts state
+      setPosts(posts.map(p => p._id === updatedPost._id ? updatedPost : p));
+
+      // Update selected post state
+      setSelectedPost(updatedPost);
       setCommentText('');
-      setActiveComment(null);
-      
-      // In real app, make API call to save comment
-      // await axios.post(`/api/posts/${postId}/comments`, { text: commentText });
     } catch (err) {
       console.error('Error adding comment:', err);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full"
-        />
-      </div>
-    );
-  }
+  const handleDeleteComment = async (commentId) => {
+    if (!selectedPost) return;
+    if (!window.confirm("Delete this comment?")) return;
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-        <p className="text-red-500 mb-4 text-lg">{error}</p>
-        <button 
-          onClick={() => window.location.reload()}
-          className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-2 rounded-lg shadow-md hover:shadow-lg transition-all"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+    try {
+      await axios.delete(`http://localhost:5555/users/posts/${selectedPost._id}/comments/${commentId}`, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+
+      // Optimistic update
+      const updatedComments = selectedPost.comments.filter(c => c._id !== commentId);
+      const updatedPost = { ...selectedPost, comments: updatedComments };
+
+      setPosts(posts.map(p => p._id === selectedPost._id ? updatedPost : p));
+      setSelectedPost(updatedPost);
+
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3 shadow-sm">
-        <div className="max-w-2xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Social Feed
-          </h1>
-          <Link 
-            to="/createpost"
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all"
+    <div className="max-w-6xl mx-auto px-4 py-8 pt-24">
+      {/* Grid Layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {posts.map(post => (
+          <div
+            key={post._id}
+            onClick={() => setSelectedPost(post)}
+            className="relative group aspect-square cursor-pointer overflow-hidden rounded-lg bg-gray-100"
           >
-            <span className="font-medium">Create</span>
-          </Link>
-        </div>
-      </header>
+            <img
+              src={post.picture}
+              alt={post.name}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+            />
 
-      {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {posts.length === 0 ? (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-16 bg-white rounded-xl shadow-sm"
-          >
-            <p className="text-gray-500 text-xl mb-6">No posts yet. Be the first to share!</p>
-            <Link 
-              to="/createpost"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg shadow-md hover:shadow-lg"
-            >
-              <span>Create Your First Post</span>
-            </Link>
-          </motion.div>
-        ) : (
-          posts.map(post => (
-            <motion.div 
-              key={post._id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-            >
-              {/* Post Header */}
-              <div className="p-4 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                    <img 
-                      src={post.userid?.picture || 'https://via.placeholder.com/150'} 
-                      alt={post.userid?.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-800">{post.userid?.name || 'User'}</h3>
-                    <p className="text-xs text-gray-500">
-                      {new Date(post.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <button className="text-gray-500 hover:text-gray-700">
-                  <FaEllipsisH />
-                </button>
+            {/* Hover Overlay */}
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-8 text-white font-bold text-lg">
+              <div className="flex items-center gap-2">
+                <FaHeart /> {post.likes}
               </div>
+              <div className="flex items-center gap-2">
+                <FaComment /> {post.comments?.length || 0}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
 
-              {/* Post Image */}
-              <div className="relative">
-                <img 
-                  src={post.picture} 
-                  alt={post.name}
-                  className="w-full h-auto max-h-[600px] object-cover"
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/500x500?text=Image+Not+Found';
-                  }}
+      {/* Post Detail Modal */}
+      <AnimatePresence>
+        {selectedPost && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSelectedPost(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-xl overflow-hidden max-w-5xl w-full max-h-[90vh] flex flex-col md:flex-row shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+
+              {/* Image Section */}
+              <div className="md:w-[60%] bg-black flex items-center justify-center">
+                <img
+                  src={selectedPost.picture}
+                  alt={selectedPost.name}
+                  className="max-h-[50vh] md:max-h-[90vh] w-full object-contain"
                 />
               </div>
 
-              {/* Post Actions */}
-              <div className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <div className="flex space-x-4">
-                    <button 
-                      onClick={() => handleLike(post._id)}
-                      className="flex items-center space-x-1"
-                    >
-                      {likedPosts.includes(post._id) ? (
-                        <FaHeart className="text-red-500 text-xl" />
+              {/* Details Section */}
+              <div className="md:w-[40%] flex flex-col h-[50vh] md:h-auto bg-white">
+                {/* Header */}
+                <div className="p-4 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+                      {selectedPost.userid?.picture ? (
+                        <img src={selectedPost.userid.picture} alt={selectedPost.userid.fullname} className="w-full h-full object-cover" />
                       ) : (
-                        <FaRegHeart className="text-xl hover:text-red-500" />
+                        <div className="w-full h-full flex items-center justify-center bg-blue-500 text-white font-bold">
+                          {selectedPost.userid?.fullname?.charAt(0).toUpperCase()}
+                        </div>
                       )}
-                    </button>
-                    <button 
-                      onClick={() => setActiveComment(activeComment === post._id ? null : post._id)}
-                      className="flex items-center space-x-1"
-                    >
-                      {activeComment === post._id ? (
-                        <FaComment className="text-blue-500 text-xl" />
-                      ) : (
-                        <FaRegComment className="text-xl hover:text-blue-500" />
-                      )}
-                    </button>
+                    </div>
+                    <span className="font-bold text-gray-900">{selectedPost.userid?.fullname}</span>
                   </div>
-                  <button className="text-gray-500 hover:text-gray-700">
-                    <FiSend className="text-xl" />
+                  <button onClick={() => setSelectedPost(null)} className="text-gray-500 hover:text-gray-900">
+                    <FaTimes size={20} />
                   </button>
                 </div>
 
-                {/* Likes count */}
-                {post.likes > 0 && (
-                  <p className="font-semibold text-sm mb-2">
-                    {post.likes} {post.likes === 1 ? 'like' : 'likes'}
-                  </p>
-                )}
+                {/* Comments Scroll Area */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {/* Caption */}
+                  <div className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                      {selectedPost.userid?.picture ? (
+                        <img src={selectedPost.userid.picture} alt="User" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-blue-500 text-white text-xs font-bold">
+                          {selectedPost.userid?.fullname?.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm">
+                        <span className="font-bold mr-2">{selectedPost.userid?.fullname}</span>
+                        {selectedPost.description}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">{new Date(selectedPost.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
 
-                {/* Post Caption */}
-                <div className="mb-2">
-                  <p className="text-sm">
-                    <span className="font-semibold mr-2">{post.userid?.name || 'User'}</span>
-                    {post.description}
-                  </p>
-                </div>
-
-                {/* Comments section */}
-                {post.comments.length > 0 && (
-                  <div className="mb-2">
-                    {post.comments.slice(0, 2).map((comment, index) => (
-                      <div key={index} className="flex items-start mb-1">
+                  {/* Comments List */}
+                  {selectedPost.comments?.map((comment, idx) => (
+                    <div key={idx} className="flex gap-3 group">
+                      <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                        {comment.userid?.picture ? (
+                          <img src={comment.userid.picture} alt="User" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-400 text-white text-xs font-bold">
+                            {comment.userid?.fullname?.charAt(0).toUpperCase() || 'U'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
                         <p className="text-sm">
-                          <span className="font-semibold mr-2">{comment.userid?.name || 'User'}</span>
+                          <span className="font-bold mr-2">{comment.userid?.fullname || 'User'}</span>
                           {comment.comment}
                         </p>
                       </div>
-                    ))}
-                    {post.comments.length > 2 && (
-                      <button 
-                        onClick={() => setActiveComment(activeComment === post._id ? null : post._id)}
-                        className="text-gray-500 text-sm"
-                      >
-                        View all {post.comments.length} comments
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Comment input (shown when active) */}
-                {activeComment === post._id && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-3"
-                  >
-                    <div className="flex items-center border-t border-gray-100 pt-3">
-                      <input
-                        type="text"
-                        value={commentText}
-                        onChange={(e) => setCommentText(e.target.value)}
-                        placeholder="Add a comment..."
-                        className="flex-1 border-none text-sm focus:ring-0"
-                        onKeyPress={(e) => e.key === 'Enter' && handleCommentSubmit(post._id)}
-                      />
-                      <button 
-                        onClick={() => handleCommentSubmit(post._id)}
-                        disabled={!commentText.trim()}
-                        className={`ml-2 font-semibold text-sm ${commentText.trim() ? 'text-blue-500' : 'text-blue-300'}`}
-                      >
-                        Post
-                      </button>
+                      {user && comment.userid?._id === user._id && (
+                        <button
+                          onClick={() => handleDeleteComment(comment._id)}
+                          className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <FaTrash size={12} />
+                        </button>
+                      )}
                     </div>
-                  </motion.div>
-                )}
+                  ))}
+                </div>
+
+                {/* Actions Footer */}
+                <div className="p-4 border-t bg-white">
+                  <div className="flex gap-4 mb-3">
+                    <button
+                      onClick={() => handleLike(selectedPost._id)}
+                      className="text-2xl hover:opacity-70 transition-opacity focus:outline-none"
+                    >
+                      <motion.div
+                        whileTap={{ scale: 0.8 }}
+                        animate={user && selectedPost.likedBy?.some(id => id?.toString() === user._id?.toString()) ? { scale: [1, 1.2, 1] } : {}}
+                      >
+                        {user && selectedPost.likedBy?.some(id => id?.toString() === user._id?.toString()) ? (
+                          <FaHeart className="text-red-500" />
+                        ) : (
+                          <FaRegHeart />
+                        )}
+                      </motion.div>
+                    </button>
+                    <button className="text-2xl hover:opacity-70 transition-opacity">
+                      <FaComment />
+                    </button>
+                  </div>
+                  <p className="font-bold mb-1">{selectedPost.likes} likes</p>
+                  <p className="text-xs text-gray-500 uppercase mb-4">
+                    {new Date(selectedPost.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}
+                  </p>
+
+                  {/* Comment Input */}
+                  <form onSubmit={handleCommentSubmit} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Add a comment..."
+                      className="flex-1 text-sm border-none focus:ring-0 p-0"
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!commentText.trim()}
+                      className="text-blue-500 font-bold text-sm disabled:opacity-50 hover:text-blue-700"
+                    >
+                      Post
+                    </button>
+                  </form>
+                </div>
               </div>
             </motion.div>
-          ))
+          </motion.div>
         )}
-      </main>
+      </AnimatePresence>
     </div>
   );
 };

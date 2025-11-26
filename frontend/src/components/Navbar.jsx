@@ -56,11 +56,11 @@ const Navbar = () => {
                 className="flex items-center space-x-1 focus:outline-none"
               >
                 <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-blue-600">
-                  {user.photoURL ? (
-                    <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                  {user.picture ? (
+                    <img src={user.picture} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full bg-blue-600 flex items-center justify-center text-white font-medium">
-                      {user.displayName?.charAt(0).toUpperCase() || 'U'}
+                      {user.fullname?.charAt(0).toUpperCase() || 'U'}
                     </div>
                   )}
                 </div>
@@ -70,7 +70,7 @@ const Navbar = () => {
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-xl py-1 z-50 border border-gray-100">
                   <div className="px-4 py-3 border-b border-gray-100">
                     <p className="text-sm font-medium text-gray-900 truncate">
-                      {user.displayName || 'User'}
+                      {user.fullname || 'User'}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
                       {user.email || 'No email available'}
@@ -81,7 +81,7 @@ const Navbar = () => {
                     onClick={() => setIsDropdownOpen(false)}
                     className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                   >
-                    Account Settings
+                    Profile
                   </Link>
                   <button
                     onClick={handleLogout}

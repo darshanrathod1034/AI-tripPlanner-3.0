@@ -1,13 +1,13 @@
 import express from "express";
-import  getHybridRecommendations  from "../services/hybridRecommendation.js";
-import generateAIItinerary  from "../services/generateAIItinerary.js";
+import getHybridRecommendations from "../services/hybridRecommendation.js";
+import generateAIItinerary from "../services/generateAIItinerary.js";
 import userModel from "../models/user-model.js";
 import Place from "../models/place.js";
 
 const airouters = express.Router();
 
 // Recommend places using Hybrid AI System
-airouters.post("/recommend",isLoggedIn, async (req, res) => {
+airouters.post("/recommend", isLoggedIn, async (req, res) => {
   try {
     let userId = await userModel.findOne({ email: req.user.email });
     const { destination, startDate, endDate, budget, preferences } = req.body;
@@ -18,9 +18,9 @@ airouters.post("/recommend",isLoggedIn, async (req, res) => {
 
     // Call AI itinerary function
     let aiResponse = await generateAIItinerary(userId, destination, startDate, endDate, budget, preferences);
-if (!aiResponse || !aiResponse.itinerary) {
-  return res.status(500).json({ error: "Itinerary generation failed" });
-}
+    if (!aiResponse || !aiResponse.itinerary) {
+      return res.status(500).json({ error: "Itinerary generation failed" });
+    }
     console.log("Generated Itinerary:", aiResponse);
 
     //  Extract `itinerary` array from the returned object

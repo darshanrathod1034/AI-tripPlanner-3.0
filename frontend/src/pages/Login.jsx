@@ -18,17 +18,17 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:5555/users/login', { 
-        email, 
-        password 
-      }, { 
-        withCredentials: true 
+      const response = await axios.post('http://localhost:5555/users/login', {
+        email,
+        password
+      }, {
+        withCredentials: true
       });
 
-      if (response.data.token) {
-        login(response.data.token);
+      if (response.data.token && response.data.user) {
+        login(response.data.token, response.data.user);
       } else {
-        throw new Error('No token received');
+        throw new Error('No token or user data received');
       }
     } catch (err) {
       console.error('Login Error:', err);
@@ -40,7 +40,7 @@ const Login = () => {
     <div>
       <Navbar />
       <div className="flex items-center justify-center py-12 h-screen">
-        <Background/>
+        <Background />
         <div className="bg-white absolute p-8 rounded-lg shadow-lg w-full max-w-md">
           <h2 className="text-2xl font-bold mb-6">Login</h2>
 
@@ -69,7 +69,7 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <button 
+            <button
               type="submit"
               className="w-full bg-blue-900 text-white px-4 py-2 rounded hover:bg-blue-800 transition-colors"
             >
@@ -78,7 +78,7 @@ const Login = () => {
           </form>
 
           <p className="mt-4 text-center text-gray-700">
-            Don't have an account? 
+            Don't have an account?
             <Link to="/signup" className="text-blue-600 ml-1 hover:underline">Sign Up</Link>
           </p>
         </div>

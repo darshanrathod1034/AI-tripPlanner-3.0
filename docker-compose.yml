@@ -1,0 +1,87 @@
+# ============================================
+# DOCKER COMPOSE - Run Multiple Containers
+# ============================================
+# docker-compose makes it easy to run multiple
+# containers together. Instead of running
+# docker commands manually, just run:
+#   docker-compose up
+# and everything starts!
+
+# Version of docker-compose format (optional in modern Docker)
+version: '3.8'
+
+# ============ SERVICES (Containers) ============
+services:
+  
+  # ---------- BACKEND SERVICE ----------
+  backend:
+    # Build from the backend folder's Dockerfile
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    
+    # Name this container (optional but helpful)
+    container_name: trip-planner-backend
+    
+    # Restart policy - always restart if it crashes
+    restart: unless-stopped
+    
+    # Port mapping: HOST:CONTAINER
+    # Access backend at localhost:3000
+    ports:
+      - "3000:3000"
+    
+    # Environment variables
+    # You can also use env_file: ./backend/.env
+    environment:
+      - NODE_ENV=production
+      # Add your other env vars here, or use env_file below
+    
+    # Load environment from file (recommended!)
+    env_file:
+      - ./backend/.env
+    
+    # Health check - Docker will restart if unhealthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ---------- FRONTEND SERVICE ----------
+  frontend:
+    # Build from the frontend folder's Dockerfile
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    
+    # Name this container
+    container_name: trip-planner-frontend
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Port mapping
+    # Access frontend at localhost:80 (or just localhost)
+    ports:
+      - "80:80"
+    
+    # Frontend depends on backend being ready
+    depends_on:
+      - backend
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ============ NETWORKS (Optional) ============
+# Docker Compose creates a default network automatically
+# Uncomment below if you want a custom network
+
+# networks:
+#   trip-planner-network:
+#     driver: bridge

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
-import SearchBar from '../components/SearchBar';
+//import SearchBar from '../components/searchbar';
 import { outline, skyline, world } from '../assets/assets';
 import Footer from '../components/Footer';
 import { Link } from 'react-router-dom';

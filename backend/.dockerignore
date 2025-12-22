@@ -1,0 +1,49 @@
+# ============================================
+# .dockerignore - Files to EXCLUDE from image
+# ============================================
+# Similar to .gitignore, this tells Docker which
+# files to skip when copying. This keeps your
+# image small and secure!
+
+# Node modules - we'll install fresh in container
+node_modules
+
+# Environment files - NEVER include secrets in images!
+# You'll pass these at runtime instead
+.env
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+logs
+*.log
+
+# Git files - not needed in production
+.git
+.gitignore
+
+# IDE/Editor files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files (optional - remove if you run tests in container)
+test
+tests
+__tests__
+*.test.js
+*.spec.js
+
+# Documentation
+README.md
+docs
+
+# Dockerfile itself (not needed inside container)
+Dockerfile
+docker-compose*.yml

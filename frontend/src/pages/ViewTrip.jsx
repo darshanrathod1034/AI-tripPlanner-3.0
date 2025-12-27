@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
 import axios from "axios";
+import api from "../services/api";
 import { FaBookmark, FaRegBookmark } from "react-icons/fa";
 import { useAuth } from "../context/authContext";
 
@@ -72,8 +73,8 @@ const ViewTrip = () => {
   const fetchSavedPlaces = async () => {
     if (!user) return;
     try {
-      const response = await axios.get(
-        "http://localhost:5555/users/savedplaces",
+      const response = await api.get(
+        "/users/savedplaces",
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
       setSavedPlaces(response.data.savedPlaces || []);
@@ -96,15 +97,15 @@ const ViewTrip = () => {
       if (isAlreadySaved) {
         const savedPlace = savedPlaces.find(p => p.name === place.name);
 
-        await axios.delete(
-          `http://localhost:5555/users/saveplace/${savedPlace._id}`,
+        await api.delete(
+          `/users/saveplace/${savedPlace._id}`,
           { headers: { Authorization: `Bearer ${user.token}` } }
         );
 
         setSavedPlaces(savedPlaces.filter(p => p._id !== savedPlace._id));
       } else {
-        const response = await axios.post(
-          "http://localhost:5555/users/saveplace",
+        const response = await api.post(
+          "/users/saveplace",
           {
             name: place.name,
             lat: place.lat,
@@ -181,8 +182,8 @@ const ViewTrip = () => {
   // ---------- FETCH TRIP BY ID ----------
   const fetchTripById = async (id) => {
     try {
-      const response = await axios.get(
-        `http://localhost:5555/users/mytrip/${id}`,
+      const response = await api.get(
+        `/users/mytrip/${id}`,
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
       const trip = response.data.trip;

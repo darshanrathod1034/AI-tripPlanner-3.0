@@ -137,6 +137,7 @@ export const getInternationalRecommendation = async () => {
         ];
 
         // Pick a random destination
+        
         const randomDestination = destinations[Math.floor(Math.random() * destinations.length)];
 
         const response = await axios.get(GOOGLE_TEXT_SEARCH_API, {

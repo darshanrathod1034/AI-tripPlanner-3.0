@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { outline, skyline } from '../assets/assets';
 import Background from '../components/Background';
 
@@ -23,7 +23,7 @@ const Signup = () => {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:5555/auth/sendotp', { email });
+      const response = await api.post('/auth/sendotp', { email });
       setMessage(response.data.message || 'OTP sent to your email.');
       setOtpSent(true);
     } catch (err) {
@@ -38,7 +38,7 @@ const Signup = () => {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:5555/auth/register', {
+      const response = await api.post('/auth/register', {
         fullname,
         email,
         password,

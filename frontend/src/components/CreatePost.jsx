@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
 
@@ -72,21 +72,19 @@ const CreatePost = () => {
         formData.append('image', image);
       }
 
-      const url = editMode
-        ? `http://localhost:5555/users/updatepost/${existingPost._id}`
-        : 'http://localhost:5555/users/createpost';
-
-      const method = editMode ? 'put' : 'post';
-
-      const response = await axios({
-        method: method,
-        url: url,
-        data: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${user.token}`
-        }
-      });
+      const response = editMode
+        ? await api.put(`/users/updatepost/${existingPost._id}`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${user.token}`
+          }
+        })
+        : await api.post('/users/createpost', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${user.token}`
+          }
+        });
 
       if (response.status === 201 || response.status === 200) {
         navigate('/account', {

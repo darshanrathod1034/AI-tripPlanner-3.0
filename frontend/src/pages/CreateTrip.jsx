@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/authContext";
 import Navbar from "../components/Navbar";
 import axios from "axios";
+import api from "../services/api";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Background from "../components/Background";
@@ -74,8 +75,8 @@ const CreateTrip = () => {
     setError("");
 
     try {
-      const response = await axios.post(
-        "http://localhost:5555/ai/recommend",
+      const response = await api.post(
+        "/ai/recommend",
         {
           destination: formData.destination,
           startDate: formData.startDate,

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
-import axios from "axios";
+import api from "../services/api";
 import { FiClock, FiCalendar, FiMapPin, FiDollarSign } from "react-icons/fi";
 import { useAuth } from '../context/authContext';
 
@@ -16,7 +16,7 @@ const MyTrips = () => {
     const fetchTrips = async () => {
       if (!user) return;
       try {
-        const response = await axios.get("http://localhost:5555/users/mytrips", {
+        const response = await api.get("/users/mytrips", {
           headers: { Authorization: `Bearer ${user.token}` }
         });
         setTrips(response.data.trips);

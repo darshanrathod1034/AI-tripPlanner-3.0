@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import { outline, skyline, world } from '../assets/assets';
 import Footer from '../components/Footer';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { fetchMultiplePlaceImages } from '../services/unsplashService';
 import { FaBookmark, FaRegBookmark } from 'react-icons/fa';
 import { useAuth } from '../context/authContext';
@@ -57,7 +57,7 @@ const Dashboard = () => {
       const params = lat && lng ? { lat, lng } : {};
 
       console.log("🌐 Frontend: Making API call to /users/recommendations");
-      const response = await axios.get('http://localhost:5555/users/recommendations', {
+      const response = await api.get('/users/recommendations', {
         params,
       });
 
@@ -84,7 +84,7 @@ const Dashboard = () => {
 
   const fetchSavedPlaces = async () => {
     try {
-      const response = await axios.get('http://localhost:5555/users/savedplaces', {
+      const response = await api.get('/users/savedplaces', {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       setSavedPlaces(response.data.savedPlaces || []);
@@ -107,13 +107,13 @@ const Dashboard = () => {
       if (isAlreadySaved) {
         // Unsave
         const savedPlace = savedPlaces.find(p => p.name === place.name && p.address === place.location);
-        await axios.delete(`http://localhost:5555/users/saveplace/${savedPlace._id}`, {
+        await api.delete(`/users/saveplace/${savedPlace._id}`, {
           headers: { Authorization: `Bearer ${user.token}` }
         });
         setSavedPlaces(savedPlaces.filter(p => p._id !== savedPlace._id));
       } else {
         // Save
-        const response = await axios.post('http://localhost:5555/users/saveplace', {
+        const response = await api.post('/users/saveplace', {
           name: place.name,
           lat: 0, // We don't have lat/lng from recommendations
           lng: 0,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { FaHeart, FaRegHeart, FaComment, FaTimes, FaTrash } from 'react-icons/fa';
 import { useAuth } from '../context/authContext';
@@ -19,7 +19,7 @@ const PostFeed = () => {
 
   const fetchPosts = async () => {
     try {
-      const response = await axios.get('http://localhost:5555/users/allposts');
+      const response = await api.get('/users/allposts');
       setPosts(response.data.posts || []);
     } catch (err) {
       console.error('Error fetching posts:', err);
@@ -61,7 +61,7 @@ const PostFeed = () => {
       }
 
       // API Call
-      await axios.post(`http://localhost:5555/users/likepost/${postId}`, {}, {
+      await api.post(`/users/likepost/${postId}`, {}, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
 
@@ -80,7 +80,7 @@ const PostFeed = () => {
     if (!commentText.trim() || !selectedPost) return;
 
     try {
-      const response = await axios.post(`http://localhost:5555/users/posts/addcomment/${selectedPost._id}`,
+      const response = await api.post(`/users/posts/addcomment/${selectedPost._id}`,
         { comment: commentText },
         { headers: { Authorization: `Bearer ${user.token}` } }
       );
@@ -103,7 +103,7 @@ const PostFeed = () => {
     if (!window.confirm("Delete this comment?")) return;
 
     try {
-      await axios.delete(`http://localhost:5555/users/posts/${selectedPost._id}/comments/${commentId}`, {
+      await api.delete(`/users/posts/${selectedPost._id}/comments/${commentId}`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
 

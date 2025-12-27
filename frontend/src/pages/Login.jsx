@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
-import axios from 'axios';
+import api from '../services/api';
 import Navbar from '../components/Navbar';
 import { outline, skyline } from '../assets/assets';
 import Background from '../components/Background';
@@ -18,7 +18,7 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:5555/users/login', {
+      const response = await api.post('/users/login', {
         email,
         password
       }, {

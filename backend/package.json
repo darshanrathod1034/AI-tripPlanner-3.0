@@ -9,7 +9,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start": "nodemon app.js",
+    "start": "node app.js",
     "dev:server": "nodemon app.js"
   },
   "dependencies": {

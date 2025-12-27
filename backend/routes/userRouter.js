@@ -505,8 +505,11 @@ userRouter.put('/updatepost/:id', isLoggedIn, upload.single("image"), async (req
     }
 
     // Check ownership
-    if (post.userid.toString() !== req.user.id) {
-      return res.status(403).json({ message: "Unauthorized" });
+    if (post.userid.toString() !== req.user._id.toString()) {
+      //req.user._id
+      //console.log("1->"+post.userid.toString());
+      //console.log("2->"+req.user._id);
+      return res.status(403).json({ message: "Unauthorised" });
     }
 
     // Update fields
@@ -536,12 +539,12 @@ userRouter.delete('/deletepost/:id', isLoggedIn, async (req, res) => {
     }
 
     // Check ownership
-    if (post.userid.toString() !== req.user.id) {
+    if (post.userid.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
     // Remove post from user's post array
-    let user = await userModel.findById(req.user.id);
+    let user = await userModel.findById(req.user._id);
     user.post = user.post.filter(p => p.toString() !== req.params.id);
     await user.save();
 

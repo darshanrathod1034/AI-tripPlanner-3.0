@@ -15,12 +15,11 @@ const router = express.Router();
 dotenv.config();  // Load environment variables
 
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,  
-  port: process.env.EMAIL_PORT,  
-  secure: false, // Use `true` if using port 465 (SSL)
+  host: "smtp.sendgrid.net",
+  port: 587,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: "apikey",
+    pass: process.env.SENDGRID_API_KEY,
   },
 });
 

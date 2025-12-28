@@ -34,7 +34,7 @@ router.post('/sendotp', async (req, res) => {
     await OTP.create({ email, otp });
 
     // Send OTP via email using Resend
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: 'Trip Planner <onboarding@resend.dev>',
       to: email,
       subject: '🌍 Trip Planner - Your OTP Code',
@@ -79,9 +79,14 @@ router.post('/sendotp', async (req, res) => {
 `
     });
 
+    console.log("Resend API Response:", data);
 
+    if (error) {
+      console.error("Resend API Error:", error);
+      return res.status(500).json({ message: error.message || 'Error sending otp' });
+    }
 
-    res.status(200).json({ message: 'OTP sent successfully' });
+    res.status(200).json({ message: 'OTP sent successfully', id: data?.id });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: 'Error sending OTP' });

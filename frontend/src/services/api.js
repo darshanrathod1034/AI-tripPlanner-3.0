@@ -6,7 +6,7 @@ const normalizeBaseUrl = (url) => {
 };
 
 export const BACKEND_URL = normalizeBaseUrl(
-  import.meta.env.VITE_BACKEND_URL || 'http://localhost:5555'
+  import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
 );
 
 export const api = axios.create({

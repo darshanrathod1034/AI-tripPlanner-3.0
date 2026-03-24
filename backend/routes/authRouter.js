@@ -7,6 +7,7 @@ import User from '../models/user-model.js';
 import OTP from '../models/otp-model.js';
 import dotenv from 'dotenv';
 
+
 dotenv.config();  // Load environment variables
 
 const router = express.Router();
@@ -32,6 +33,8 @@ router.post('/sendotp', async (req, res) => {
 
     // Store OTP with expiration
     await OTP.create({ email, otp });
+
+
 
     // Send OTP via email using Resend
     const { data, error } = await resend.emails.send({
@@ -75,6 +78,7 @@ router.post('/sendotp', async (req, res) => {
     <p style="font-size: 12px; color: #a0aec0;">© 2025 Trip Planner. All rights reserved.</p>
     <p style="font-size: 12px; color: #a0aec0;">Explore the world with confidence</p>
   </footer>
+    
 </div>
 `
     });

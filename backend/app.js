@@ -2,17 +2,16 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import cors from "cors";
-
+import passport from 'passport';
+import './config/passport.js';
 
 import path from 'path';
-import { fileURLToPath } from 'url'; // Needed to fix __dirname issue
+import { fileURLToPath } from 'url';
 import session from 'express-session';
-import flash from 'express-flash'; // Import flash properly
+import flash from 'express-flash';
 
-import usersRouter from './routes/userRouter.js'; // Add .js for ES modules
-//import authRouter from './routes/authRouter.js'; // Add .js for ES modules
+import usersRouter from './routes/userRouter.js';
 import authRouter from './routes/authRouter.js';
-//import airoute from './routes/airoutes.js';
 import placeRouter from './routes/placeRouter.js';
 import airoutes from './routes/airoutes.js';
 import dotenv from 'dotenv';
@@ -38,6 +37,7 @@ app.use(cors({
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cookieParser());
+app.use(passport.initialize());
 app.use(
   session({
     resave: false,

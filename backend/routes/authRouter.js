@@ -2,10 +2,10 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Resend } from 'resend';
-//import User from '../models/userModel.js';
 import User from '../models/user-model.js';
 import OTP from '../models/otp-model.js';
 import dotenv from 'dotenv';
+import passport from '../config/passport.js';
 
 
 dotenv.config();  // Load environment variables
@@ -182,5 +182,54 @@ let existingUser = await
       res.status(500).json({ message: 'Server error' });
     }
   });
+
+// ─── Google OAuth Routes ────────────────────────────────────────────────────
+
+// Step 1: Redirect user to Google consent screen
+router.get(
+  '/google',
+  passport.authenticate('google', { scope: ['profile', 'email'], session: false })
+);
+
+// Step 2: Google redirects back here after user consents
+router.get(
+  '/google/callback',
+  passport.authenticate('google', { failureRedirect: '/auth/google/failure', session: false }),
+  async (req, res) => {
+    try {
+      const user = req.user; // populated by passport strategy
+
+      // Sign a JWT — same format the rest of the app uses
+      const token = jwt.sign(
+        { id: user._id, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      // Encode user data to pass to the frontend
+      const userData = encodeURIComponent(
+        JSON.stringify({
+          _id: user._id,
+          fullname: user.fullname,
+          email: user.email,
+          picture: user.picture,
+          phone: user.phone,
+        })
+      );
+
+      const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+      res.redirect(`${frontendURL}/auth/google/success?token=${token}&user=${userData}`);
+    } catch (err) {
+      console.error('Google callback error:', err);
+      const frontendURL = process.env.FRONTEND_URL || 'http://localhost:5173';
+      res.redirect(`${frontendURL}/login?error=google_failed`);
+    }
+  }
+);
+
+// Step 3: Failure fallback
+router.get('/google/failure', (req, res) => {
+  res.status(401).json({ message: 'Google authentication failed. Please try again.' });
+});
 
 export default router;

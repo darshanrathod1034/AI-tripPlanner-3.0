@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import PostFeed from './components/PostFeed'
 import CreatePost from './components/CreatePost'
 import AccountPage from './pages/AccountPage'
+import GoogleAuthCallback from './pages/GoogleAuthCallback'
 import { LoadScript } from '@react-google-maps/api'
 
 const App = () => {
@@ -22,6 +23,7 @@ const App = () => {
           <Route path='/' element={<Home />} />
           <Route path='/signup' element={<Signup />} />
           <Route path='/login' element={<Login />} />
+          <Route path='/auth/google/success' element={<GoogleAuthCallback />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>

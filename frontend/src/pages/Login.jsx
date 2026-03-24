@@ -51,9 +51,9 @@ const Login = () => {
               className="w-full mb-4 p-2 border rounded"
               placeholder="Email"
               type="email"
-              name="email"  // Important for autocomplete
-              id="email"    // Important for autocomplete
-              autoComplete="username"  // Standard autocomplete value for emails/usernames
+              name="email"
+              id="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -62,9 +62,9 @@ const Login = () => {
               className="w-full mb-4 p-2 border rounded"
               placeholder="Password"
               type="password"
-              name="password"  // Important for autocomplete
-              id="password"    // Important for autocomplete
-              autoComplete="current-password"  // Standard autocomplete value for passwords
+              name="password"
+              id="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -76,6 +76,29 @@ const Login = () => {
               Login
             </button>
           </form>
+
+          {/* ── Divider ── */}
+          <div className="flex items-center my-4">
+            <div className="flex-1 border-t border-gray-300"></div>
+            <span className="px-3 text-sm text-gray-500">or</span>
+            <div className="flex-1 border-t border-gray-300"></div>
+          </div>
+
+          {/* ── Google OAuth Button ── */}
+          <button
+            type="button"
+            onClick={() =>
+              window.location.href = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5555'}/auth/google`
+            }
+            className="w-full flex items-center justify-center gap-3 border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 transition-colors"
+          >
+            <img
+              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+              alt="Google"
+              className="w-5 h-5"
+            />
+            <span className="text-gray-700 font-medium">Continue with Google</span>
+          </button>
 
           <p className="mt-4 text-center text-gray-700">
             Don't have an account?

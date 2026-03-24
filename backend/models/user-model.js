@@ -3,7 +3,8 @@ import mongoose from 'mongoose';
 const userSchema = new mongoose.Schema({
     fullname: String,
     email: String,
-    password: String,
+    password: { type: String, default: null },
+    googleId: { type: String, default: null },
     post: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'post'  // ✅ Matches model name exactly

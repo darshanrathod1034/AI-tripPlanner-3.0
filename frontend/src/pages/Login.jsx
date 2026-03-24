@@ -88,7 +88,7 @@ const Login = () => {
           <button
             type="button"
             onClick={() =>
-              window.location.href = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5555'}/auth/google`
+              window.location.href = `${(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5555').replace(/\/$/, '')}/auth/google`
             }
             className="w-full flex items-center justify-center gap-3 border border-gray-300 px-4 py-2 rounded hover:bg-gray-50 transition-colors"
           >

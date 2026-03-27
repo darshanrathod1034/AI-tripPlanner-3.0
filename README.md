@@ -1,5 +1,5 @@
-# 🧠 AI Trip Planner
-
+# 🧠 AI Trip Planner 
+## GO Check Out it's Live --- [Link](https://ai-trip-planner-cyan.vercel.app)
 > **Your intelligent travel companion** - Generate optimized, day-wise travel itineraries powered by AI and smart routing algorithms.
 
 Plan your perfect trip in minutes! Just enter your destination, dates, budget, and interests - our AI handles the rest by creating optimized routes that minimize travel time and maximize your experience.

@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import User from '../models/user-model.js';
 import OTP from '../models/otp-model.js';
 import dotenv from 'dotenv';
@@ -12,14 +12,8 @@ dotenv.config();
 
 const router = express.Router();
 
-// Nodemailer transporter — Gmail + App Password
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+// Resend client — uses HTTPS port 443, works on Render (no SMTP port blocking)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ─── Send OTP ────────────────────────────────────────────────────────────────
 router.post('/sendotp', async (req, res) => {
@@ -36,8 +30,8 @@ router.post('/sendotp', async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     await OTP.create({ email, otp });
 
-    await transporter.sendMail({
-      from: `"Trip Planner" <${process.env.EMAIL_USER}>`,
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'Trip Planner <onboarding@resend.dev>',
       to: email,
       subject: '🌍 Trip Planner - Your OTP Code',
       html: `
@@ -60,10 +54,15 @@ router.post('/sendotp', async (req, res) => {
       `,
     });
 
-    console.log(`✅ OTP sent to ${email}`);
+    if (error) {
+      console.error('❌ Resend error:', error);
+      return res.status(500).json({ message: error.message || 'Error sending OTP. Please try again.' });
+    }
+
+    console.log(`✅ OTP sent to ${email} via Resend (id: ${data?.id})`);
     res.status(200).json({ message: 'OTP sent successfully' });
   } catch (error) {
-    console.error('Error sending OTP:', error);
+    console.error('❌ Error sending OTP:', error.message);
     res.status(500).json({ message: 'Error sending OTP. Please try again.' });
   }
 });
@@ -142,15 +141,10 @@ router.post('/register', async (req, res) => {
     // Check if a soft-deleted account exists with this email — restore it
     const existingDeleted = await User.findOne({ email, isDeleted: true });
     if (existingDeleted) {
-      // Restore the account with a new password, keep credits as-is
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
       existingDeleted.isDeleted = false;
       existingDeleted.deletedAt = null;
       existingDeleted.password = hashedPassword;
       existingDeleted.fullname = fullname;
-      // Ensure they have a referral code (backfill if missing)
       if (!existingDeleted.referralCode) {
         existingDeleted.referralCode = await generateReferralCode();
       }
@@ -225,11 +219,8 @@ router.post('/apply-referral', async (req, res) => {
 
     const currentUser = await User.findById(decoded.id);
     if (!currentUser) {
-      console.error(`apply-referral: user not found for id ${decoded.id}`);
       return res.status(404).json({ message: 'User not found' });
     }
-
-    console.log(`apply-referral: currentUser=${currentUser.email}, referredBy=${currentUser.referredBy}`);
 
     if (currentUser.referredBy) {
       return res.status(400).json({ message: 'Referral code already applied to this account' });
@@ -238,7 +229,6 @@ router.post('/apply-referral', async (req, res) => {
     const code = providedCode.trim().toUpperCase();
     const referrer = await User.findOne({ referralCode: code });
     if (!referrer) {
-      console.warn(`apply-referral: no user found with referralCode=${code}`);
       return res.status(400).json({ message: 'Invalid referral code' });
     }
     if (referrer._id.toString() === currentUser._id.toString()) {
@@ -304,7 +294,6 @@ router.get('/google/failure', (req, res) => {
 });
 
 // ─── Backfill referral codes for existing users (run once) ───────────────────
-// GET /auth/backfill-referral-codes  — safe to call multiple times (skips users who already have one)
 router.get('/backfill-referral-codes', async (req, res) => {
   try {
     const usersWithoutCode = await User.find({ referralCode: { $exists: false } });

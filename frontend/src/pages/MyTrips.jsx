@@ -7,7 +7,7 @@ import { FiCalendar, FiMapPin, FiDollarSign } from "react-icons/fi";
 import { FaPlaneDeparture, FaSuitcaseRolling } from "react-icons/fa";
 import { useAuth } from '../context/authContext';
 import { motion } from "framer-motion";
-import axios from "axios";
+import { fetchPlaceImage } from "../services/unsplashService";
 
 const MyTrips = () => {
   const navigate = useNavigate();
@@ -17,8 +17,6 @@ const MyTrips = () => {
   const [error, setError] = useState(null);
   const [tripImages, setTripImages] = useState({});
 
-  const unsplashAccessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY;
-
   useEffect(() => {
     const fetchTrips = async () => {
       if (!user) return;
@@ -26,21 +24,17 @@ const MyTrips = () => {
         const response = await api.get("/users/mytrips", {
           headers: { Authorization: `Bearer ${user.token}` }
         });
-        const fetchedTrips = response.data.trips.reverse(); // Newest first
+        const fetchedTrips = response.data.trips.reverse();
         setTrips(fetchedTrips);
-        
-        // Parallel fetching of images to drastically speed up load time
+
+        // Fetch images via circuit-breaker-aware service
         const imageMap = {};
         await Promise.all(
           fetchedTrips.map(async (trip) => {
-            try {
-              const res = await axios.get("https://api.unsplash.com/photos/random", {
-                params: { query: `${trip.destination} city landmark architecture`, orientation: "landscape", client_id: unsplashAccessKey },
-              });
-              imageMap[trip._id] = res.data.urls.regular;
-            } catch (err) {
-              imageMap[trip._id] = `https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80`;
-            }
+            imageMap[trip._id] = await fetchPlaceImage(
+              trip.destination,
+              'city landmark architecture'
+            );
           })
         );
         setTripImages(imageMap);

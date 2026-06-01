@@ -2,11 +2,11 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
-import axios from "axios";
 import api from "../services/api";
 import { FaBookmark, FaRegBookmark, FaRoute, FaMapMarkerAlt, FaRegCalendarAlt, FaWallet, FaStar } from "react-icons/fa";
 import { useAuth } from "../context/authContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { fetchPlaceImage } from "../services/unsplashService";
 
 // Custom hook to load Google Maps
 const useLoadGoogleMaps = (apiKey) => {
@@ -60,7 +60,6 @@ const ViewTrip = () => {
     placeImages: true,
   });
 
-  const unsplashAccessKey = import.meta.env.VITE_UNSPLASH_ACCESS_KEY;
   const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
   const isGoogleMapsLoaded = useLoadGoogleMaps(googleMapsApiKey);
 
@@ -114,15 +113,8 @@ const ViewTrip = () => {
   const fetchDestinationImage = async (destination) => {
     try {
       setLoading(prev => ({ ...prev, destinationImage: true }));
-      const response = await axios.get(
-        `https://api.unsplash.com/photos/random`,
-        {
-          params: { query: `${destination} landmark city landscape`, orientation: "landscape", client_id: unsplashAccessKey },
-        }
-      );
-      setDestinationImage(response.data.urls.regular);
-    } catch (error) {
-      setDestinationImage(`https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80`);
+      const url = await fetchPlaceImage(destination, 'landmark city landscape');
+      setDestinationImage(url);
     } finally {
       setLoading(prev => ({ ...prev, destinationImage: false }));
     }
@@ -134,14 +126,9 @@ const ViewTrip = () => {
       setLoading(prev => ({ ...prev, placeImages: true }));
       for (const dayPlan of recommendations) {
         for (const place of dayPlan.places) {
-          try {
-            const response = await axios.get("https://api.unsplash.com/photos/random", {
-              params: { query: `${place.name} ${tripDetails.destination}`, client_id: unsplashAccessKey },
-            });
-            images[place.name] = response.data.urls.small;
-          } catch {
-            images[place.name] = `https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60`;
-          }
+          images[place.name] = await fetchPlaceImage(
+            `${place.name} ${tripDetails.destination}`
+          );
         }
       }
     } finally {

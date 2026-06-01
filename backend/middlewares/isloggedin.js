@@ -39,6 +39,16 @@ const isLoggedIn = async (req, res, next) => {
       });
     }
 
+    // Block soft-deleted accounts
+    if (user.isDeleted) {
+      console.warn(`Auth Failed: Account is deleted for email ${decoded.email}`);
+      return res.status(401).json({
+        success: false,
+        error: "This account has been deleted. Please sign up again.",
+        code: "ACCOUNT_DELETED"
+      });
+    }
+
     // Attach user to request
     req.user = user;
     console.log(`Auth Success: User ${user.email} authenticated`);

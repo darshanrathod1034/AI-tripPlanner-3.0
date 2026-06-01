@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/authContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import CreditBadge from './CreditBadge';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -57,6 +58,9 @@ const Navbar = () => {
             <Link to="/explore" className="text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors">
               Explore
             </Link>
+
+            {/* Credit balance badge */}
+            <CreditBadge />
 
             <div className="relative" ref={dropdownRef}>
               <button

@@ -373,6 +373,27 @@ userRouter.get('/logout', (req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 });
 
+// Delete account (soft delete — preserves credits for re-signup)
+userRouter.delete('/delete-account', isLoggedIn, async (req, res) => {
+  try {
+    const user = await userModel.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.isDeleted = true;
+    user.deletedAt = new Date();
+    await user.save();
+
+    console.log(`🗑️ Soft-deleted account: ${user.email} (credits preserved: ${user.credits})`);
+
+    // Clear auth cookie
+    res.cookie('token', '', { expires: new Date(0) });
+    res.status(200).json({ message: 'Account deleted successfully' });
+  } catch (err) {
+    console.error('Delete account error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get personalized recommendations based on user location
 // IMPORTANT: This must come BEFORE the /:id route to avoid being matched as a dynamic parameter
 userRouter.get('/recommendations', async (req, res) => {

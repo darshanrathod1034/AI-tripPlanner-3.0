@@ -3,6 +3,7 @@ import getHybridRecommendations from "../services/hybridRecommendation.js";
 import generateAIItinerary from "../services/generateAIItinerary.js";
 import userModel from "../models/user-model.js";
 import Place from "../models/place.js";
+import { deductCredit, refundCredit } from "../services/creditService.js";
 
 const airouters = express.Router();
 
@@ -16,23 +17,44 @@ airouters.post("/recommend", isLoggedIn, async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required parameters" });
     }
 
-    // Call AI itinerary function
-    let aiResponse = await generateAIItinerary(userId, destination, startDate, endDate, budget, preferences);
-    if (!aiResponse || !aiResponse.itinerary) {
+    // Deduct 1 credit before generating — atomic guard prevents negative balance
+    try {
+      await deductCredit(userId._id);
+    } catch (creditErr) {
+      if (creditErr.message === 'insufficient_credits') {
+        return res.status(402).json({
+          success: false,
+          error: 'insufficient_credits',
+          message: 'Not enough credits. Earn more by referring friends!',
+        });
+      }
+      throw creditErr;
+    }
+
+    // Call AI itinerary function — refund on failure
+    let aiResponse;
+    try {
+      aiResponse = await generateAIItinerary(userId, destination, startDate, endDate, budget, preferences);
+    } catch (genErr) {
+      // Refund the credit since generation failed
+      await refundCredit(userId._id).catch(console.error);
       return res.status(500).json({ error: "Itinerary generation failed" });
     }
+
+    if (!aiResponse || !aiResponse.itinerary) {
+      await refundCredit(userId._id).catch(console.error);
+      return res.status(500).json({ error: "Itinerary generation failed" });
+    }
+
     console.log("Generated Itinerary:", aiResponse);
 
-    //  Extract `itinerary` array from the returned object
     let recommendations = aiResponse.itinerary || [];
 
-    //  Ensure it's an array
     if (!Array.isArray(recommendations)) {
       console.error("❌ Error: itinerary is not an array!");
       recommendations = [];
     }
 
-    //  Populate places before returning
     for (let day of recommendations) {
       if (day.places && Array.isArray(day.places)) {
         day.places = await Place.find({ _id: { $in: day.places } });

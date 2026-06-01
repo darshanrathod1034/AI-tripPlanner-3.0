@@ -24,7 +24,7 @@ const budgetMap = {
 
 const CreateTrip = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshCredits } = useAuth();
   const [formData, setFormData] = useState({
     destination: "",
     budget: "",
@@ -88,6 +88,8 @@ const CreateTrip = () => {
       );
 
       if (response.data?.success) {
+        // Refresh credit balance in navbar after successful generation
+        refreshCredits();
         navigate("/view-trip", {
           state: {
             itinerary: response.data.recommendations,
@@ -99,7 +101,9 @@ const CreateTrip = () => {
       }
     } catch (error) {
       console.error("Trip creation error:", error);
-      if (error.response?.status === 401) {
+      if (error.response?.status === 402) {
+        setError("Not enough credits. Earn more by referring friends!");
+      } else if (error.response?.status === 401) {
         setError("Your session has expired. Please log in again.");
         logout();
         navigate("/login");

@@ -2,6 +2,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import User from '../models/user-model.js';
 import dotenv from 'dotenv';
+import { generateReferralCode, awardCredits } from '../services/creditService.js';
 dotenv.config();
 
 passport.use(
@@ -19,26 +20,46 @@ passport.use(
 
         // 1. Check if a user already exists with this Google ID
         let user = await User.findOne({ googleId: profile.id });
-        if (user) return done(null, user);
+        if (user) {
+          // If soft-deleted, restore it
+          if (user.isDeleted) {
+            user.isDeleted = false;
+            user.deletedAt = null;
+            if (!user.picture) user.picture = googlePicture;
+            await user.save();
+            console.log(`♻️ Restored deleted Google account: ${user.email}`);
+          }
+          return done(null, user);
+        }
 
         // 2. Check if an account already exists with the same email (OTP user) — link it
         user = await User.findOne({ email: googleEmail });
         if (user) {
+          // If soft-deleted, restore it
+          if (user.isDeleted) {
+            user.isDeleted = false;
+            user.deletedAt = null;
+          }
           user.googleId = profile.id;
-          // Update picture if they don't have one
           if (!user.picture) user.picture = googlePicture;
           await user.save();
           return done(null, user);
         }
 
         // 3. Create a brand-new Google user (no password)
+        const newReferralCode = await generateReferralCode();
         const newUser = await User.create({
           fullname: googleName,
           email: googleEmail,
           googleId: profile.id,
           picture: googlePicture,
           password: null,
+          referralCode: newReferralCode,
+          credits: 0,
         });
+
+        // Award signup bonus
+        await awardCredits(newUser._id, 5, 'signup_bonus');
 
         return done(null, newUser);
       } catch (err) {

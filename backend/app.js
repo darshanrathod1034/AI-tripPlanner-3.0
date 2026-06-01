@@ -14,6 +14,7 @@ import usersRouter from './routes/userRouter.js';
 import authRouter from './routes/authRouter.js';
 import placeRouter from './routes/placeRouter.js';
 import airoutes from './routes/airoutes.js';
+import creditRouter from './routes/creditRouter.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -58,6 +59,7 @@ app.use('/users', usersRouter);
 app.use('/auth', authRouter);
 app.use("/api/places", placeRouter);
 app.use("/ai", airoutes);
+app.use("/credits", creditRouter);
 
 // Error Handler Middleware (Must be last)
 app.use(errorHandler);

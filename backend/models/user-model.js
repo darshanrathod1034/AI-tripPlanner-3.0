@@ -16,7 +16,12 @@ const userSchema = new mongoose.Schema({
     preferences: [String], // ["beaches", "adventure", "history"]
     trips: [{ type: mongoose.Schema.Types.ObjectId, ref: "Trip" }],
     phone: Number,
-    picture: { type: String, default: "" }
+    picture: { type: String, default: "" },
+    credits: { type: Number, default: 5, min: 0 },
+    referralCode: { type: String, unique: true, sparse: true },
+    referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'users', default: null },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
 });
 
 const userModel = mongoose.model('users', userSchema);  // ✅ Keep as 'users'

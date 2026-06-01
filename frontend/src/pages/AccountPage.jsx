@@ -5,10 +5,30 @@ import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaEdit, FaTrash, FaMapMarkerAlt, FaEnvelope, FaPhone, FaPen, FaBookmark, FaHeart } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaMapMarkerAlt, FaEnvelope, FaPhone, FaPen, FaBookmark, FaHeart, FaWallet, FaCopy, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+
+// Helper: format transaction type to human-readable label + icon
+const TX_META = {
+  signup_bonus:         { label: 'Welcome Bonus',        icon: '🎁', color: 'text-emerald-600' },
+  referral_reward:      { label: 'Referral Reward',       icon: '👥', color: 'text-blue-600'    },
+  itinerary_generation: { label: 'AI Trip Generated',     icon: '✈️', color: 'text-red-500'     },
+  refund:               { label: 'Refund',                icon: '↩️', color: 'text-amber-600'   },
+};
+
+function timeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 const AccountPage = () => {
-  const { user, updateUser } = useAuth();
+  const { user, credits, updateUser, refreshCredits } = useAuth();
+  const { logout } = useAuth();
   const [editMode, setEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
   const [formData, setFormData] = useState({
@@ -20,6 +40,14 @@ const AccountPage = () => {
   const [savedPlaces, setSavedPlaces] = useState([]);
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Wallet state
+  const [transactions, setTransactions] = useState([]);
+  const [referralCode, setReferralCode] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [walletLoading, setWalletLoading] = useState(false);
+  // Delete account state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -92,10 +120,62 @@ const AccountPage = () => {
     navigate('/createpost', { state: { post } });
   };
 
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    try {
+      await api.delete('/users/delete-account', {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      toast.success('Account deleted. Your credits are preserved for when you return.');
+      setTimeout(() => {
+        logout();
+      }, 1500);
+    } catch (err) {
+      console.error('Delete account error:', err);
+      toast.error(err.response?.data?.message || 'Failed to delete account');
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  // Fetch wallet data when Wallet tab is opened
+  useEffect(() => {
+    if (activeTab !== 'wallet') return;
+    const fetchWallet = async () => {
+      setWalletLoading(true);
+      try {
+        const [txRes, balRes] = await Promise.all([
+          api.get('/credits/transactions', { headers: { Authorization: `Bearer ${user.token}` } }),
+          api.get('/credits/balance',      { headers: { Authorization: `Bearer ${user.token}` } }),
+        ]);
+        setTransactions(txRes.data.transactions || []);
+        setReferralCode(balRes.data.referralCode || '');
+        refreshCredits();
+      } catch (err) {
+        console.error('Failed to load wallet data:', err);
+        toast.error('Could not load wallet data');
+      } finally {
+        setWalletLoading(false);
+      }
+    };
+    fetchWallet();
+  }, [activeTab]);
+
+  const handleCopyCode = () => {
+    if (!referralCode) return;
+    navigator.clipboard.writeText(referralCode).then(() => {
+      setCopied(true);
+      toast.success('Referral code copied!');
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   const tabs = [
-    { id: 'posts', label: 'My Posts', count: posts.length, icon: FaPen },
-    { id: 'saved', label: 'Saved Places', count: savedPlaces.length, icon: FaBookmark },
-    { id: 'trips', label: 'My Trips', count: trips.length, icon: FaHeart },
+    { id: 'posts',  label: 'My Posts',      count: posts.length,       icon: FaPen      },
+    { id: 'saved',  label: 'Saved Places',   count: savedPlaces.length, icon: FaBookmark },
+    { id: 'trips',  label: 'My Trips',       count: trips.length,       icon: FaHeart    },
+    { id: 'wallet', label: 'Wallet',         count: credits,            icon: FaWallet   },
   ];
 
   if (loading) return (
@@ -197,6 +277,12 @@ const AccountPage = () => {
                       className="px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold flex items-center gap-2 rounded-2xl shadow-sm hover:shadow-md hover:bg-slate-50 transition-all transform hover:scale-105"
                     >
                       <FaEdit /> Edit Profile
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="px-6 py-3 bg-white border border-red-200 text-red-500 font-bold flex items-center gap-2 rounded-2xl shadow-sm hover:shadow-md hover:bg-red-50 transition-all transform hover:scale-105"
+                    >
+                      <FaTrash /> Delete Account
                     </button>
                   </div>
                 )}
@@ -348,7 +434,6 @@ const AccountPage = () => {
                         <p className="text-slate-400 font-bold text-sm mb-8 uppercase tracking-wider">
                           {new Date(trip.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} — {new Date(trip.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                         </p>
-                        
                         <div className="flex justify-between items-end">
                            <div className="flex items-center gap-2">
                               <span className="bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200">{trip.budget}</span>
@@ -375,10 +460,147 @@ const AccountPage = () => {
                 )}
               </div>
             )}
+
+            {/* -------------------- WALLET -------------------- */}
+            {activeTab === 'wallet' && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-black text-slate-900">Your Wallet</h2>
+
+                {walletLoading ? (
+                  <div className="flex justify-center py-16">
+                    <div className="w-10 h-10 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Balance Card */}
+                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-[2rem] p-8 flex items-center gap-6">
+                      <div className="w-20 h-20 rounded-2xl bg-amber-100 flex items-center justify-center text-4xl shadow-inner flex-shrink-0">
+                        🪙
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-1">Credit Balance</p>
+                        <p className="text-5xl font-black text-amber-700 tabular-nums">{credits}</p>
+                        <p className="text-sm text-amber-600 mt-1">1 credit = 1 AI-generated trip</p>
+                      </div>
+                    </div>
+
+                    {/* Referral Card */}
+                    <div className="bg-white border border-slate-200 rounded-[2rem] p-8">
+                      <h3 className="text-lg font-black text-slate-900 mb-1">Refer &amp; Earn</h3>
+                      <p className="text-sm text-slate-500 mb-5">
+                        Share your code — you get <span className="font-bold text-emerald-600">+25 credits</span> for every friend who signs up.
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-5 py-3 font-mono text-lg font-bold text-slate-800 tracking-widest select-all">
+                          {referralCode || '—'}
+                        </div>
+                        <button
+                          onClick={handleCopyCode}
+                          disabled={!referralCode}
+                          className="flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-bold rounded-xl transition-all"
+                        >
+                          {copied ? <FaCheck className="text-green-300" /> : <FaCopy />}
+                          {copied ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Transaction History */}
+                    <div className="bg-white border border-slate-200 rounded-[2rem] p-8">
+                      <h3 className="text-lg font-black text-slate-900 mb-5">Transaction History</h3>
+                      {transactions.length === 0 ? (
+                        <p className="text-slate-400 text-center py-8">No transactions yet.</p>
+                      ) : (
+                        <ul className="divide-y divide-slate-100">
+                          {transactions.map((tx) => {
+                            const meta = TX_META[tx.type] || { label: tx.type, icon: '•', color: 'text-slate-600' };
+                            const isPositive = tx.amount > 0;
+                            return (
+                              <li key={tx._id} className="flex items-center justify-between py-4 gap-4">
+                                <div className="flex items-center gap-4">
+                                  <span className="text-2xl w-8 text-center">{meta.icon}</span>
+                                  <div>
+                                    <p className="font-bold text-slate-800 text-sm">{meta.label}</p>
+                                    <p className="text-xs text-slate-400">{timeAgo(tx.createdAt)}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className={`font-black text-base tabular-nums ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
+                                    {isPositive ? '+' : ''}{tx.amount}
+                                  </p>
+                                  <p className="text-xs text-slate-400">bal: {tx.balanceAfter}</p>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
 
       </div>
+
+      {/* ── Delete Account Confirmation Modal ── */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[2rem] shadow-2xl p-8 max-w-md w-full"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center text-red-500 text-xl flex-shrink-0">
+                  <FaExclamationTriangle />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900">Delete Account?</h3>
+                  <p className="text-sm text-slate-500">This action can be undone by signing up again.</p>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+                <p className="text-sm text-amber-800 font-medium">
+                  🪙 Your <span className="font-black">{credits} credit{credits !== 1 ? 's' : ''}</span> will be preserved. If you sign up again with the same email, you'll get them back — no reset.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={deleteLoading}
+                  className="flex-1 px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteLoading}
+                  className="flex-1 px-5 py-3 bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2"
+                >
+                  {deleteLoading ? (
+                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <FaTrash />
+                  )}
+                  {deleteLoading ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

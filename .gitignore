@@ -25,3 +25,6 @@ dist-ssr
 backend/node_modules/
 node_modules/
 
+# Kiro IDE files
+.kiro/
+

@@ -31,7 +31,7 @@ router.post('/sendotp', async (req, res) => {
     await OTP.create({ email, otp });
 
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'Trip Planner <onboarding@resend.dev>',
+      from: 'Trip Planner <noreply@ai-trip-planner.app>',
       to: email,
       subject: '🌍 Trip Planner - Your OTP Code',
       html: `

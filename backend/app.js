@@ -125,7 +125,17 @@ app.use('/api/places', placeRouter);
 app.use('/ai', airoutes);
 app.use('/credits', creditRouter);
 
-// Health check
+// Health check — used by cron-job.org to keep Render server awake
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+  });
+});
+
+// Default route
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Trip Planner API is running' });
 });

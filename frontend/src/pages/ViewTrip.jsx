@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import HotelResultsSection from '../components/HotelResultsSection';
+import DayHotelCard from '../components/DayHotelCard';
 import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
 import api from "../services/api";
 import { FaBookmark, FaRegBookmark, FaRoute, FaMapMarkerAlt, FaRegCalendarAlt, FaWallet, FaStar } from "react-icons/fa";
@@ -38,6 +40,44 @@ const dayColors = [
   "#06b6d4", // Cyan-500
 ];
 
+// ─── SEO / hotel helpers ─────────────────────────────────────────────────────
+
+/**
+ * Compute the geographic centroid of an array of places.
+ * @param {Array<{lat:number, lng:number}>} places
+ * @returns {{lat:number, lng:number}|null}
+ */
+const getDayCentroid = (places) => {
+  if (!places?.length) return null;
+  const sum = places.reduce(
+    (acc, p) => ({ lat: acc.lat + p.lat, lng: acc.lng + p.lng }),
+    { lat: 0, lng: 0 }
+  );
+  return { lat: sum.lat / places.length, lng: sum.lng / places.length };
+};
+
+/**
+ * Extract a human-readable neighbourhood / area name from place addresses.
+ * Falls back to the destination string.
+ * @param {Array<{address?:string}>} places
+ * @param {string} fallback
+ * @returns {string}
+ */
+const getDayAreaName = (places, fallback) => {
+  if (!places?.length) return fallback;
+  const addr = places[0]?.address || '';
+  if (addr) {
+    // Split by comma, skip the first segment (usually place name),
+    // find the first segment that doesn't start with a digit and is long enough.
+    const parts = addr.split(',').map((p) => p.trim());
+    const area = parts.find(
+      (p, i) => i > 0 && p && !/^\d/.test(p) && p.length > 3 && !/^\d{4,}/.test(p)
+    );
+    if (area) return area;
+  }
+  return fallback;
+};
+
 const ViewTrip = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -47,6 +87,11 @@ const ViewTrip = () => {
   const [recommendations, setRecommendations] = useState(null);
   const [tripDetails, setTripDetails] = useState(null);
   const [error, setError] = useState(null);
+
+  const [hotels, setHotels] = useState([]);
+  const [hotelsLoading, setHotelsLoading] = useState(true);
+
+  const affiliateId = import.meta.env.VITE_BOOKING_AFFILIATE_ID || '';
 
   const [activeMarker, setActiveMarker] = useState(null);
   const [map, setMap] = useState(null);
@@ -137,6 +182,21 @@ const ViewTrip = () => {
     }
   };
 
+  const fetchHotelsForTrip = async (destination, startDate, endDate) => {
+    try {
+      const response = await api.get(
+        `/api/hotels?destination=${encodeURIComponent(destination)}&startDate=${startDate}&endDate=${endDate}`,
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+      setHotels(response.data.hotels || []);
+    } catch (err) {
+      console.error('Failed to fetch hotels for saved trip:', err);
+      setHotels([]);
+    } finally {
+      setHotelsLoading(false);
+    }
+  };
+
   const fetchTripById = async (id) => {
     try {
       const response = await api.get(
@@ -148,10 +208,13 @@ const ViewTrip = () => {
       setTripDetails({
         destination: trip.destination,
         budget: trip.budget,
+        startDate: trip.startDate,
+        endDate: trip.endDate,
         interests: trip.preferences || []
       });
       fetchDestinationImage(trip.destination);
       fetchSavedPlaces();
+      fetchHotelsForTrip(trip.destination, trip.startDate, trip.endDate);
     } catch (error) {
       console.error("Error fetching trip:", error);
       setError("Failed to load trip. Please try again.");
@@ -164,6 +227,9 @@ const ViewTrip = () => {
       setTripDetails(location.state.tripDetails);
       fetchDestinationImage(location.state.tripDetails.destination);
       fetchSavedPlaces();
+      // Set hotels from navigation state (fresh trip from CreateTrip)
+      setHotels(location.state.hotels || []);
+      setHotelsLoading(false);
     } else if (tripId && user) {
       fetchTripById(tripId);
     } else if (!tripId) {
@@ -413,10 +479,35 @@ const ViewTrip = () => {
                           </div>
                         ))}
                       </div>
+
+                      {/* ── Day-wise Hotel Recommendation ──────────────── */}
+                      <DayHotelCard
+                        dayNumber={dayPlan.day}
+                        dayColor={dayColor}
+                        areaName={getDayAreaName(dayPlan.places, tripDetails.destination)}
+                        destination={tripDetails.destination}
+                        budget={tripDetails.budget}
+                        startDate={tripDetails.startDate}
+                        endDate={tripDetails.endDate}
+                        affiliateId={affiliateId}
+                      />
+
                     </motion.div>
                   );
                 })}
               </div>
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="mt-12 mb-8">
+              {/* Hotel Recommendations */}
+              <HotelResultsSection
+                hotels={hotels}
+                loading={hotelsLoading}
+                destination={tripDetails.destination}
+                startDate={tripDetails.startDate}
+                endDate={tripDetails.endDate}
+                affiliateId={affiliateId}
+              />
             </motion.div>
 
             <motion.div variants={itemVariants} className="mt-12 mb-8">

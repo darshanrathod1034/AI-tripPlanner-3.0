@@ -12,6 +12,7 @@ import PostFeed from './components/PostFeed'
 import CreatePost from './components/CreatePost'
 import AccountPage from './pages/AccountPage'
 import GoogleAuthCallback from './pages/GoogleAuthCallback'
+import NotFound from './pages/NotFound'
 import { LoadScript } from '@react-google-maps/api'
 
 const App = () => {
@@ -36,6 +37,9 @@ const App = () => {
             <Route path='/explore' element={<PostFeed />} />
             <Route path='/account' element={<AccountPage />} />
           </Route>
+
+          {/* Catch-all 404 Route */}
+          <Route path='*' element={<NotFound />} />
         </Routes>
       </LoadScript>
     </>

@@ -8,8 +8,8 @@ const Hero = () => {
       {/* Background Image */}
       <div className="absolute inset-0">
         <img
-          src="https://content.api.news/v3/images/bin/4491bf978b849ce0b2f54b196c81cbd9"
-          alt="Mountain View"
+          src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1920&q=80"
+          alt="Beautiful travel landscape of mountain range"
           className="w-full h-full object-cover"
         />
         {/* Soft overlay gradient */}
@@ -30,7 +30,7 @@ const Hero = () => {
             transition={{ delay: 0.2, duration: 0.8 }}
             className="block text-[#ffb700] text-7xl sm:text-8xl md:text-9xl lg:text-[180px] mb-2 sm:mb-4 tracking-tighter"
           >
-            Trip
+            Trip{" "}
           </motion.span>
           <motion.span 
             initial={{ opacity: 0 }}
@@ -38,7 +38,7 @@ const Hero = () => {
             transition={{ delay: 0.6, duration: 0.8 }}
             className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold"
           >
-            your next Vacation
+            Your Next Vacation
           </motion.span>
         </h1>
         

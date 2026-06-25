@@ -4,6 +4,7 @@ import generateAIItinerary from "../services/generateAIItinerary.js";
 import userModel from "../models/user-model.js";
 import Place from "../models/place.js";
 import { deductCredit, refundCredit } from "../services/creditService.js";
+import { getHotels } from "../services/hotelService.js";
 
 const airouters = express.Router();
 
@@ -61,7 +62,16 @@ airouters.post("/recommend", isLoggedIn, async (req, res) => {
       }
     }
 
-    res.json({ success: true, recommendations });
+    // Fetch hotels — never let this break the itinerary response
+    let hotels = [];
+    try {
+      hotels = await getHotels(destination, startDate, endDate);
+    } catch (hotelErr) {
+      console.error('⚠️ Hotel fetch failed (itinerary still returned):', hotelErr.message || hotelErr.code);
+      hotels = [];
+    }
+
+    res.json({ success: true, recommendations, hotels });
   } catch (error) {
     console.error("❌ Error in Recommendations API:", error);
     res.status(500).json({ success: false, message: "Server error" });

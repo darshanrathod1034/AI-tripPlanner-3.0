@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /create-trip
+Disallow: /view-trip
+Disallow: /my-trips
+Disallow: /account
+Disallow: /createpost
+Disallow: /explore
+
+Sitemap: https://www.ai-trip-planner.app/sitemap.xml

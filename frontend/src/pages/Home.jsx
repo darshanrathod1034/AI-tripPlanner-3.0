@@ -1,7 +1,7 @@
 import React from 'react';
 import Hero from '../components/Hero';
 import Navbar from '../components/Navbar';
-import { outline, skyline, world } from '../assets/assets';
+import { outline, world } from '../assets/assets';
 import Footer from '../components/Footer';
 import { motion } from 'framer-motion';
 
@@ -126,9 +126,8 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Footer skyline decoration */}
+      {/* Footer Section */}
       <div className="w-full relative mt-auto">
-         <img src={skyline} alt="skyline" className="w-full min-h-[100px] object-cover object-bottom" />
          <Footer />
       </div>
     </div>
